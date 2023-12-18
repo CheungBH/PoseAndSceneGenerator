@@ -26,6 +26,7 @@ parser.add_argument("--img_size", type=int, default=32, help="size of each image
 parser.add_argument("--channels", type=int, default=1, help="number of image channels")
 parser.add_argument("--sample_interval", type=int, default=40, help="interval between image sampling")
 parser.add_argument("--save_dir", type=str, default="../../exp/aee", help="interval between image sampling")
+parser.add_argument("--action", type=str, required=True)
 parser.add_argument("--data_path", type=str,
                     default="/Users/cheungbh/Documents/lab_code/KpsActionClassification/data/20231207_ML_model/train.csv", help="interval between image sampling")
 opt = parser.parse_args()
@@ -54,7 +55,7 @@ if cuda:
     pixelwise_loss.cuda()
 
 
-dataset = KPSDataset(opt.data_path)
+dataset = KPSDataset(opt.data_path, opt.action)
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True)
 
 optimizer_G = torch.optim.Adam(
