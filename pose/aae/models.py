@@ -42,7 +42,7 @@ class Decoder(nn.Module):
             nn.Linear(512, 512),
             nn.BatchNorm1d(512),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 35),
+            nn.Linear(512, 34),
             nn.Tanh(),
         )
 
@@ -56,7 +56,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Linear(35, 128),
+            nn.Linear(34, 128),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(128, 128),
             nn.BatchNorm1d(128),
