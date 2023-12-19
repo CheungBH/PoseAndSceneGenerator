@@ -7,7 +7,7 @@ import csv
 cuda = True if torch.cuda.is_available() else False
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-generator_path = "/media/hkuit164/Backup/PoseAndSceneGenerator/exp/bgan_test2/generator.pth"
+generator_path = "/media/hkuit164/Backup/PoseAndSceneGenerator/exp/wgan_test/generator.pth"
 csv_path = ""
 
 
@@ -64,7 +64,8 @@ def generate_kps(latent_dim, model):
 if __name__ == '__main__':
     from models import Generator
     latent_dim = 10
-    model = Generator(latent_dim, fn=34)
+    feature_num = 34
+    model = Generator(latent_dim, feature_num)
     if cuda:
         model = model.cuda()
     model.load_state_dict(torch.load(generator_path))

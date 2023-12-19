@@ -1,13 +1,10 @@
 from torch import nn
 import torch
-import numpy as np
-from torch.autograd import Variable
 
 Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
-
 class Generator(nn.Module):
-    def __init__(self, latent_dim, fn):
+    def __init__(self, latent_dim, feature_num):
         super(Generator, self).__init__()
 
         def block(in_feat, out_feat, normalize=True):
@@ -22,7 +19,7 @@ class Generator(nn.Module):
             *block(128, 256),
             *block(256, 512),
             *block(512, 1024),
-            nn.Linear(1024, fn),
+            nn.Linear(1024, feature_num),
             nn.Tanh()
         )
 
@@ -32,20 +29,18 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, latent_dim, fn):
+    def __init__(self, latent_dim, feature_num):
         super(Discriminator, self).__init__()
 
         self.model = nn.Sequential(
-            nn.Linear(fn, 512),
+            nn.Linear(feature_num, 512),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(512, 256),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, 1),
-            nn.Sigmoid(),
         )
 
     def forward(self, z):
         # img_flat = img.view(img.shape[0], -1)
-        # validity = self.model(img_flat)
         validity = self.model(z)
         return validity
