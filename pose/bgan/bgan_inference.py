@@ -7,7 +7,7 @@ import csv
 cuda = True if torch.cuda.is_available() else False
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-decoder_path = "/media/hkuit164/Backup/PoseAndSceneGenerator/exp/aee/decoder.pth"
+generator_path = "/media/hkuit164/Backup/PoseAndSceneGenerator/exp/bgan_test2/generator.pth"
 csv_path = ""
 
 
@@ -44,8 +44,8 @@ def generate_kps(latent_dim, model):
             # kps_list.append(gen_kp.tolist() + ["4", "throw"])
             # write_csv(csv_path, kps_list)
 
-            image = np.zeros((300, 300, 3), dtype=np.uint8)
-            float_single_coord = [x * 200 for x in gen_kp]
+            image = np.zeros((400, 400, 3), dtype=np.uint8)
+            float_single_coord = [x * 400 for x in gen_kp]
             # print(label)
             for i in range(17):
                 x = int(float_single_coord[i * 2])
@@ -60,18 +60,12 @@ def generate_kps(latent_dim, model):
         cv2.imshow('image', image)
         cv2.waitKey(0)
 
-        # concated_imgs = []
-        # for i in range(n_row):
-        #     horizontal = np.concatenate(imgs[i*n_row:(i+1)*n_row], axis=1)
-        #     concated_imgs.append(horizontal)
-        # concated_imgs = np.concatenate(concated_imgs, axis=0)
-
 
 if __name__ == '__main__':
-    from models import Decoder
+    from models import Generator
     latent_dim = 10
-    model = Decoder(latent_dim)
+    model = Generator(latent_dim, fn=34)
     if cuda:
         model = model.cuda()
-    model.load_state_dict(torch.load(decoder_path))
+    model.load_state_dict(torch.load(generator_path))
     generate_kps(latent_dim, model)
