@@ -4,7 +4,7 @@ import numpy as np
 from torch.autograd import Variable
 
 Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-
+# Tensor = torch.FloatTensor
 
 def reparameterization(mu, logvar, latent_dim):
     std = torch.exp(logvar / 2)

@@ -10,6 +10,7 @@ from torchvision.utils import save_image
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.autograd import Variable
+from pose.save_txt import save_data
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -31,7 +32,7 @@ parser.add_argument("--img_size", type=int, default=28, help="size of each image
 parser.add_argument("--channels", type=int, default=1, help="number of image channels")
 parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
 parser.add_argument("--save_dir", type=str, default="../../exp/bgan", help="interval between image sampling")
-parser.add_argument("--action", type=str, required=True)
+# parser.add_argument("--action", type=str, required=False)
 parser.add_argument("--data_path", type=str, default="", help="interval between image sampling")
 parser.add_argument("--feature_num", type=int, default=34, help="")
 opt = parser.parse_args()
@@ -59,8 +60,8 @@ if cuda:
     discriminator.cuda()
     discriminator_loss.cuda()
 
-dataset = KPSDataset(opt.data_path, opt.action)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True)
+dataset = KPSDataset(opt.data_path)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, drop_last=True)
 
 # Optimizers
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
@@ -115,6 +116,7 @@ def sample_kps(n_row, batches_done, save_dir):
 
 
 for epoch in range(opt.n_epochs):
+    D_loss_epoch, G_loss_epoch = 0, 0
     for i, kps in enumerate(dataloader):
 
         # Adversarial ground truths
@@ -160,12 +162,16 @@ for epoch in range(opt.n_epochs):
             "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
             % (epoch, opt.n_epochs, i, len(dataloader), d_loss.item(), g_loss.item())
         )
-
+        D_loss_epoch += d_loss.item()
+        G_loss_epoch += g_loss.item()
         batches_done = epoch * len(dataloader) + i
         if batches_done % opt.sample_interval == 0:
             sample_kps(n_row=int(math.sqrt(kps.shape[0])), batches_done=batches_done,
                        save_dir=os.path.join(opt.save_dir, "image"))
 
+    save_data(epoch, D_loss_epoch/len(dataloader), G_loss_epoch/len(dataloader), opt.save_dir)
+    # if epoch == opt.n_epochs:
+    #     save_data(epoch, )
     if epoch % 10 == 0:
         torch.save(generator.state_dict(), os.path.join(opt.save_dir, "generator.pth"))
         torch.save(discriminator.state_dict(), os.path.join(opt.save_dir, "discriminator.pth"))

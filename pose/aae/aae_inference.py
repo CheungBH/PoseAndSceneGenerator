@@ -7,7 +7,7 @@ import csv
 cuda = True if torch.cuda.is_available() else False
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-decoder_path = "/media/hkuit164/Backup/PoseAndSceneGenerator/exp/aee/decoder.pth"
+decoder_path = "/media/hkuit164/Backup/PoseAndSceneGenerator/exp/aee_sit_chair/decoder.pth"
 csv_path = ""
 
 
@@ -44,8 +44,8 @@ def generate_kps(latent_dim, model):
             # kps_list.append(gen_kp.tolist() + ["4", "throw"])
             # write_csv(csv_path, kps_list)
 
-            image = np.zeros((300, 300, 3), dtype=np.uint8)
-            float_single_coord = [x * 200 for x in gen_kp]
+            image = np.zeros((400, 400, 3), dtype=np.uint8)
+            float_single_coord = [x * 400 for x in gen_kp]
             # print(label)
             for i in range(17):
                 x = int(float_single_coord[i * 2])

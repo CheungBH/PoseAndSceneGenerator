@@ -26,7 +26,7 @@ parser.add_argument("--img_size", type=int, default=32, help="size of each image
 parser.add_argument("--channels", type=int, default=1, help="number of image channels")
 parser.add_argument("--sample_interval", type=int, default=40, help="interval between image sampling")
 parser.add_argument("--save_dir", type=str, default="../../exp/aee", help="interval between image sampling")
-parser.add_argument("--action", type=str, required=True)
+# parser.add_argument("--action", type=str, required=True)
 parser.add_argument("--data_path", type=str,
                     default="/Users/cheungbh/Documents/lab_code/KpsActionClassification/data/20231207_ML_model/train.csv", help="interval between image sampling")
 opt = parser.parse_args()
@@ -56,7 +56,7 @@ if cuda:
 
 
 dataset = KPSDataset(opt.data_path, opt.action)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, drop_last=True)
 
 optimizer_G = torch.optim.Adam(
     itertools.chain(encoder.parameters(), decoder.parameters()), lr=opt.lr, betas=(opt.b1, opt.b2)
@@ -70,27 +70,47 @@ def sample_kps(n_row, batches_done, save_dir):
     os.makedirs(save_dir, exist_ok=True)
 
     color_dict = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (0, 255, 255), (255, 255, 0)]
-    color_idx = [4, 7, 10, 13, 16]
+    # color_idx = [4, 7, 10, 13, 16]
+    #
+    # def choose_color(coord_i):
+    #     c_idx = 0
+    #     while True:
+    #         if coord_i <= color_idx[c_idx]:
+    #             return color_dict[c_idx]
+    #         else:
+    #             c_idx += 1
+
+    connections = [(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (1, 3), (2, 4), (3, 4), (5, 6), (5, 7), (7, 9), (6, 8), (8, 10), (11, 12), (11, 13), (13, 15), (12, 14), (14, 16), (5, 11), (6, 12)]
 
     def choose_color(coord_i):
-        c_idx = 0
-        while True:
-            if coord_i <= color_idx[c_idx]:
-                return color_dict[c_idx]
-            else:
-                c_idx += 1
+        if coord_i <= 4:
+            return color_dict[0]
+        elif coord_i in [5, 7, 9]:
+            return color_dict[1]
+        elif coord_i in [6, 8, 10]:
+            return color_dict[2]
+        elif coord_i in [11, 13, 15]:
+            return color_dict[3]
+        elif coord_i in [12, 14, 16]:
+            return color_dict[4]
+
 
     z = Variable(Tensor(np.random.normal(0, 1, (n_row ** 2, opt.latent_dim))))
     gen_kps = decoder(z)
     imgs = []
     for gen_kp in gen_kps:
-        image = np.zeros((200, 200, 3), dtype=np.uint8)
-        float_single_coord = [x * 200 for x in gen_kp]
+        image = np.zeros((400, 400, 3), dtype=np.uint8)
+        float_single_coord = [x * 400 for x in gen_kp]
         # print(label)
         for i in range(17):
             x = int(float_single_coord[i * 2])
             y = int(float_single_coord[i * 2 + 1])
             cv2.circle(image, (x, y), 5, choose_color(i), -1)
+
+        for i, j in connections:
+                x1, y1 = int(float_single_coord[i * 2]), int(float_single_coord[i * 2 + 1])
+                x2, y2 = int(float_single_coord[j * 2]), int(float_single_coord[j * 2 + 1])
+                cv2.line(image, (x1, y1), (x2, y2), choose_color(i), 2)
         imgs.append(image)
 
     concated_imgs = []

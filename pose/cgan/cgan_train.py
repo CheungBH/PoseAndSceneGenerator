@@ -3,58 +3,54 @@ import os
 import numpy as np
 import math
 import cv2
+import sys
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image
-
 from pose.save_txt import save_data
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.autograd import Variable
 
-import torch.nn
+import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from models import Generator, Discriminator
+from models import GeneratorKPS, DiscriminatorKPS
 from utils import KPSDataset
 
 os.makedirs("images", exist_ok=True)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--n_epochs", type=int, default=200, help="number of epochs of training")
-parser.add_argument("--batch_size", type=int, default=32, help="size of the batches")
+parser.add_argument("--batch_size", type=int, default=64, help="size of the batches")
 parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
 parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
-parser.add_argument("--latent_dim", type=int, default=10, help="dimensionality of the latent space")
-parser.add_argument("--img_size", type=int, default=28, help="size of each image dimension")
+parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
+parser.add_argument("--n_classes", type=int, default=10, help="number of classes for dataset")
+parser.add_argument("--img_size", type=int, default=32, help="size of each image dimension")
 parser.add_argument("--channels", type=int, default=1, help="number of image channels")
-parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
-parser.add_argument("--save_dir", type=str, default="../../exp/gan", help="interval between image sampling")
-# parser.add_argument("--action", type=str, required=False)
+parser.add_argument("--sample_interval", type=int, default=400, help="interval between image sampling")
+parser.add_argument("--save_dir", type=str, default="../../exp/cgan", help="interval between image sampling")
+# parser.add_argument("--action", type=str, required=True)
 parser.add_argument("--data_path", type=str, default="", help="interval between image sampling")
 parser.add_argument("--feature_num", type=int, default=34, help="")
 opt = parser.parse_args()
 print(opt)
 
-# img_shape = (opt.channels, opt.img_size, opt.img_size)
-
 cuda = True if torch.cuda.is_available() else False
-
-# Loss function
-adversarial_loss = torch.nn.BCELoss()
+adversarial_loss = torch.nn.MSELoss()
 
 # Initialize generator and discriminator
-generator = Generator(opt.latent_dim, opt.feature_num)
-discriminator = Discriminator(opt.latent_dim, opt.feature_num)
+generator = GeneratorKPS(opt.latent_dim, opt.feature_num)
+discriminator = DiscriminatorKPS(opt.latent_dim, opt.feature_num)
 
 if cuda:
     generator.cuda()
     discriminator.cuda()
     adversarial_loss.cuda()
 
-# Configure data loader
 dataset = KPSDataset(opt.data_path)
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, drop_last=True)
 
@@ -62,8 +58,8 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shu
 optimizer_G = torch.optim.Adam(generator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
 optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
 
-Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
-
+FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+LongTensor = torch.cuda.LongTensor if cuda else torch.LongTensor
 
 def sample_kps(n_row, batches_done, save_dir):
     os.makedirs(save_dir, exist_ok=True)
@@ -84,7 +80,9 @@ def sample_kps(n_row, batches_done, save_dir):
         elif coord_i in [12, 14, 16]:
             return color_dict[4]
 
-    z = Variable(Tensor(np.random.normal(0, 1, (n_row ** 2, opt.latent_dim))))
+    z = Variable(torch.Tensor(np.random.normal(0, 1, (n_row ** 2, opt.latent_dim))))
+    if cuda:
+        z = z.cuda()
     gen_kps = generator(z)
     imgs = []
     for gen_kp in gen_kps:
@@ -109,7 +107,6 @@ def sample_kps(n_row, batches_done, save_dir):
     concated_imgs = np.concatenate(concated_imgs, axis=0)
     cv2.imwrite(os.path.join("{}/{}.png").format(save_dir, batches_done), concated_imgs)
 
-
 # ----------
 #  Training
 # ----------
@@ -118,12 +115,15 @@ for epoch in range(opt.n_epochs):
     D_loss_epoch, G_loss_epoch = 0, 0
     for i, kps in enumerate(dataloader):
 
+        batch_size = kps.shape[0]
+
         # Adversarial ground truths
-        valid = Variable(Tensor(kps.size(0), 1).fill_(1.0), requires_grad=False)
-        fake = Variable(Tensor(kps.size(0), 1).fill_(0.0), requires_grad=False)
+        valid = Variable(FloatTensor(batch_size, 1).fill_(1.0), requires_grad=False)
+        fake = Variable(FloatTensor(batch_size, 1).fill_(0.0), requires_grad=False)
 
         # Configure input
-        real_imgs = Variable(kps.type(Tensor))
+        real_imgs = Variable(kps.type(FloatTensor))
+        # labels = Variable(labels.type(LongTensor))
 
         # -----------------
         #  Train Generator
@@ -131,14 +131,16 @@ for epoch in range(opt.n_epochs):
 
         optimizer_G.zero_grad()
 
-        # Sample noise as generator input
-        z = Variable(Tensor(np.random.normal(0, 1, (kps.shape[0], opt.latent_dim))))
+        # Sample noise and labels as generator input
+        z = Variable(FloatTensor(np.random.normal(0, 1, (batch_size, opt.latent_dim))))
+        # gen_labels = Variable(LongTensor(np.random.randint(0, opt.n_classes, batch_size)))
 
         # Generate a batch of images
         gen_imgs = generator(z)
 
         # Loss measures generator's ability to fool the discriminator
-        g_loss = adversarial_loss(discriminator(gen_imgs), valid)
+        validity = discriminator(gen_imgs)
+        g_loss = adversarial_loss(validity, valid)
 
         g_loss.backward()
         optimizer_G.step()
@@ -149,10 +151,16 @@ for epoch in range(opt.n_epochs):
 
         optimizer_D.zero_grad()
 
-        # Measure discriminator's ability to classify real from generated samples
-        real_loss = adversarial_loss(discriminator(real_imgs), valid)
-        fake_loss = adversarial_loss(discriminator(gen_imgs.detach()), fake)
-        d_loss = (real_loss + fake_loss) / 2
+        # Loss for real images
+        validity_real = discriminator(real_imgs)
+        d_real_loss = adversarial_loss(validity_real, valid)
+
+        # Loss for fake images
+        validity_fake = discriminator(gen_imgs.detach())
+        d_fake_loss = adversarial_loss(validity_fake, fake)
+
+        # Total discriminator loss
+        d_loss = (d_real_loss + d_fake_loss) / 2
 
         d_loss.backward()
         optimizer_D.step()
@@ -161,13 +169,13 @@ for epoch in range(opt.n_epochs):
             "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
             % (epoch, opt.n_epochs, i, len(dataloader), d_loss.item(), g_loss.item())
         )
+
+        batches_done = epoch * len(dataloader) + i
         D_loss_epoch += d_loss.item()
         G_loss_epoch += g_loss.item()
-        batches_done = epoch * len(dataloader) + i
         if batches_done % opt.sample_interval == 0:
             sample_kps(n_row=int(math.sqrt(kps.shape[0])), batches_done=batches_done,
                        save_dir=os.path.join(opt.save_dir, "image"))
-
     save_data(epoch, D_loss_epoch/len(dataloader), G_loss_epoch/len(dataloader), opt.save_dir)
     if epoch % 10 == 0:
         torch.save(generator.state_dict(), os.path.join(opt.save_dir, "generator.pth"))

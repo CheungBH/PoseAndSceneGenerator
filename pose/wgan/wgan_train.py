@@ -7,7 +7,7 @@ import sys
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image
-
+from pose.save_txt import save_data
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.autograd import Variable
@@ -22,7 +22,7 @@ os.makedirs("images", exist_ok=True)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--n_epochs", type=int, default=200, help="number of epochs of training")
-parser.add_argument("--batch_size", type=int, default=32, help="size of the batches")
+parser.add_argument("--batch_size", type=int, default=8, help="size of the batches")
 parser.add_argument("--lr", type=float, default=0.00005, help="learning rate")
 parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 parser.add_argument("--latent_dim", type=int, default=10, help="dimensionality of the latent space")
@@ -32,7 +32,7 @@ parser.add_argument("--n_critic", type=int, default=5, help="number of training 
 parser.add_argument("--clip_value", type=float, default=0.01, help="lower and upper clip value for disc. weights")
 parser.add_argument("--sample_interval", type=int, default=400, help="interval betwen image samples")
 parser.add_argument("--save_dir", type=str, default="../../exp/wgan", help="interval between image sampling")
-parser.add_argument("--action", type=str, required=True)
+# parser.add_argument("--action", type=str, required=True)
 parser.add_argument("--data_path", type=str, default="", help="interval between image sampling")
 parser.add_argument("--feature_num", type=int, default=34, help="")
 opt = parser.parse_args()
@@ -50,8 +50,8 @@ if cuda:
     generator.cuda()
     discriminator.cuda()
 
-dataset = KPSDataset(opt.data_path, opt.action)
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True)
+dataset = KPSDataset(opt.data_path)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, drop_last=True)
 
 # Optimizers
 optimizer_G = torch.optim.RMSprop(generator.parameters(), lr=opt.lr)
@@ -110,7 +110,7 @@ def sample_kps(n_row, batches_done, save_dir):
 
 batches_done = 0
 for epoch in range(opt.n_epochs):
-
+    D_loss_epoch, G_loss_epoch = 0, 0
     for i, kps in enumerate(dataloader):
 
         # Configure input
@@ -158,12 +158,14 @@ for epoch in range(opt.n_epochs):
                 "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
                 % (epoch, opt.n_epochs, batches_done % len(dataloader), len(dataloader), loss_D.item(), loss_G.item())
             )
-
+        D_loss_epoch += loss_D.item()
+        G_loss_epoch += loss_G.item()
         if batches_done % opt.sample_interval == 0:
             sample_kps(n_row=int(math.sqrt(kps.shape[0])), batches_done=batches_done,
                        save_dir=os.path.join(opt.save_dir, "image"))
         batches_done += 1
 
+    save_data(epoch, D_loss_epoch/len(dataloader), G_loss_epoch/len(dataloader), opt.save_dir)
     if epoch % 10 == 0:
         torch.save(generator.state_dict(), os.path.join(opt.save_dir, "generator.pth"))
         torch.save(discriminator.state_dict(), os.path.join(opt.save_dir, "discriminator.pth"))

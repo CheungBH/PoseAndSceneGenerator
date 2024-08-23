@@ -3,12 +3,12 @@ import csv
 
 
 class KPSDataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, target):
+    def __init__(self, data_path):
         self.data = []
         file = csv.reader(open(data_path))
         for line in file:
-            if line[-1] == target:
-                self.data.append([float(x) for x in line[:-2]])
+            # if line[-1] == target:
+            self.data.append([float(x) for x in line[:-2]])
 
     def __len__(self):
         return len(self.data)

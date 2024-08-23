@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from torch.autograd import Variable
 import torch
@@ -7,8 +9,12 @@ import csv
 cuda = True if torch.cuda.is_available() else False
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-generator_path = "/media/hkuit164/Backup/PoseAndSceneGenerator/exp/wgan_test/generator.pth"
-csv_path = ""
+parser = argparse.ArgumentParser()
+parser.add_argument("--generator_path", type=str, default="")
+parser.add_argument("--csv_path", type=str, default="")
+opt = parser.parse_args()
+generator_path = opt.generator_path
+csv_path = opt.csv_path
 
 
 def write_csv(csv_path, modified_array):
@@ -40,9 +46,9 @@ def generate_kps(latent_dim, model):
         z = Variable(Tensor(np.random.normal(0, 1, (2, latent_dim))))
         gen_kps = model(z)
         for gen_kp in gen_kps:
-            # kps_list = []
-            # kps_list.append(gen_kp.tolist() + ["4", "throw"])
-            # write_csv(csv_path, kps_list)
+            kps_list = []
+            kps_list.append(gen_kp.tolist())
+            write_csv(csv_path, kps_list)
 
             image = np.zeros((400, 400, 3), dtype=np.uint8)
             float_single_coord = [x * 400 for x in gen_kp]

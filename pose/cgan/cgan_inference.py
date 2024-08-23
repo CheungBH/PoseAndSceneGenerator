@@ -10,19 +10,16 @@ cuda = True if torch.cuda.is_available() else False
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--generator_path", type=str,  default="")
+parser.add_argument("--generator_path", type=str, default="")
 parser.add_argument("--csv_path", type=str, default="")
 opt = parser.parse_args()
 generator_path = opt.generator_path
 csv_path = opt.csv_path
-print(opt)
 
 def write_csv(csv_path, modified_array):
     with open(csv_path, 'a', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(modified_array)
-
-
 
 def generate_kps(latent_dim, model):
     color_dict = [(0, 255, 0), (0, 0, 255), (255, 0, 0), (0, 255, 255), (255, 255, 0)]
@@ -66,12 +63,11 @@ def generate_kps(latent_dim, model):
         cv2.imshow('image', image)
         cv2.waitKey(0)
 
-
 if __name__ == '__main__':
-    from models import Generator
-    latent_dim = 10
+    from models import GeneratorKPS
+    latent_dim = 100
     feature_num = 34
-    model = Generator(latent_dim, feature_num)
+    model = GeneratorKPS(latent_dim, feature_num)
     if cuda:
         model = model.cuda()
     model.load_state_dict(torch.load(generator_path))
